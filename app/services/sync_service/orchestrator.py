@@ -187,8 +187,11 @@ class SyncOrchestrator:
                 )
 
             # 13. 其余 Bangumi 账号补标记（同一媒体服务器用户名绑定多个账号）
-            self._sync._mark_episode_for_other_accounts(
+            other_results = self._sync._mark_episode_for_other_accounts(
                 item, bgm, bgm_se_id, bgm_ep_id, bgm_title
+            )
+            account_outcomes = self._sync._build_account_outcomes(
+                item, bgm, other_results, "success"
             )
 
             # 14. 标记成功收尾：通知 + 收藏归档 + 持久化
@@ -203,6 +206,7 @@ class SyncOrchestrator:
                 exec_ctx.current_outputs.get("message", ""),
                 trace,
                 status_holder,
+                account_results=account_outcomes,
             )
         except Exception as e:
             logger.error(f"自定义同步处理出错: {e}")
@@ -517,6 +521,7 @@ class SyncOrchestrator:
         result_message: str,
         trace: MatchTrace,
         status_holder: list[str],
+        account_results: list[dict] | None = None,
     ) -> SyncResponse:
         """标记成功：通知 + 收藏归档 + 持久化 + 组装 SyncResponse"""
         # 通知 mark_success/mark_skipped（result_message 已由 ResultStep 结算）
@@ -537,6 +542,7 @@ class SyncOrchestrator:
             episode_id=bgm_ep_id,
             message=result_message,
             bgm_title=bgm_title,
+            account_results=account_results,
         )
 
         result = SyncResponse(
@@ -701,6 +707,7 @@ class SyncOrchestrator:
         episode_id: str | None,
         message: str,
         bgm_title: str = "",
+        account_results: list[dict] | None = None,
     ) -> int:
         """统一收口 trace→DB 的 finish+to_dict+log 样板（原 5 处重复）
 
@@ -727,4 +734,5 @@ class SyncOrchestrator:
             match_score=trace.final_score,
             match_platform=match_platform,
             match_trace=trace.to_dict(),
+            account_results=account_results,
         )

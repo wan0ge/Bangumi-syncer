@@ -372,6 +372,65 @@
     color: var(--app-cyan-hover);
 }
 
+/* 各 Bangumi 账号同步结果 */
+.record-detail-accounts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.625rem;
+    padding: 0.625rem 0.75rem;
+    background: var(--app-bg-card);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-card-sm);
+}
+
+.record-detail-accounts__title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--app-text-muted);
+}
+
+.record-detail-accounts__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.record-detail-accounts__item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.record-detail-accounts__head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.record-detail-accounts__name {
+    font-weight: 600;
+    color: var(--app-text);
+}
+
+.record-detail-accounts__sub {
+    font-size: 0.75rem;
+    color: var(--app-text-muted);
+}
+
+.record-detail-accounts__msg {
+    font-size: 0.78rem;
+    color: var(--app-red-hover);
+    word-break: break-word;
+}
+
 /* ===== 耗时瀑布 ===== */
 .record-detail-waterfall {
     border-radius: var(--app-radius-card-sm);

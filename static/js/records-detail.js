@@ -262,6 +262,63 @@ function renderRecordHero(record, trace) {
     `;
 }
 
+// ========== 各 Bangumi 账号同步结果 ==========
+
+function parseAccountResults(record) {
+    const raw = record && record.account_results;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function renderAccountResultItem(r) {
+    const username = r.username || '未命名账号';
+    const section = r.section || '';
+    const isSuccess = r.status === 'success';
+    const badgeCls = isSuccess
+        ? 'record-detail-modal__chip--status-success'
+        : 'record-detail-modal__chip--status-error';
+    const badgeText = isSuccess ? '已同步' : '同步失败';
+    const primaryChip = r.primary
+        ? '<span class="record-detail-modal__chip record-detail-modal__chip--type">首选</span>'
+        : '';
+    const msg = (!isSuccess && r.message)
+        ? `<div class="record-detail-accounts__msg">${escapeHtml(r.message)}</div>`
+        : '';
+    const sub = section
+        ? `<span class="record-detail-accounts__sub">${escapeHtml(section)}</span>`
+        : '';
+    return `
+        <li class="record-detail-accounts__item">
+            <div class="record-detail-accounts__head">
+                <span class="record-detail-accounts__name">${escapeHtml(username)}</span>
+                ${sub}
+                ${primaryChip}
+                <span class="record-detail-modal__chip record-detail-modal__chip--status ${badgeCls}">${badgeText}</span>
+            </div>
+            ${msg}
+        </li>`;
+}
+
+function renderAccountResults(record) {
+    const results = parseAccountResults(record);
+    if (!results.length) return '';
+    const items = results.map(renderAccountResultItem).join('');
+    return `
+        <section class="record-detail-accounts">
+            <div class="record-detail-accounts__title">
+                <i class="bi bi-people-fill"></i>
+                <span>Bangumi 账号同步结果</span>
+            </div>
+            <ul class="record-detail-accounts__list">${items}</ul>
+        </section>`;
+}
+
 // ========== 耗时瀑布（仅在有步骤耗时可见时展示） ==========
 
 function renderTimingWaterfall(trace) {
@@ -862,6 +919,7 @@ function renderPipelineHtml(record, trace) {
     const totalMs = getTraceTotalMs(trace);
 
     let html = renderRecordHero(record, trace);
+    html += renderAccountResults(record);
     html += renderTimingWaterfall(trace);
 
     // 顶层条目列表（含分组占位），用于计算连接线是否收尾
