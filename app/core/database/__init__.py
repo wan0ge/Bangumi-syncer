@@ -565,6 +565,10 @@ class DatabaseManager:
         """将指定账号设为激活。"""
         return self._bangumi_accounts.set_active(section_name)
 
+    def set_enabled_bangumi_account(self, section_name: str, enabled: bool) -> bool:
+        """启用/停用指定账号；停用后该账号不再参与任务同步。"""
+        return self._bangumi_accounts.set_enabled(section_name, enabled)
+
     def update_bangumi_account_token(self, section_name: str, token: dict) -> bool:
         """仅更新令牌相关字段（OAuth 授权/刷新后回写）。"""
         return self._bangumi_accounts.update_token(section_name, token)

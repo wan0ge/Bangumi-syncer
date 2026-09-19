@@ -1,7 +1,10 @@
 """Bangumi 账号管理 API（DB 为唯一真相源）
 
-提供账号列表查询、新增/更新、删除、切换激活等接口，
+提供账号列表查询、新增/更新、删除、切换激活、启用/停用等接口，
 供配置页"账号列表"卡片使用。所有操作直接落 DB，不经过 INI。
+
+激活（is_active）与启用（enabled）职责分离：前者是 user_name 缺失时回退的
+首选账号，后者控制账号是否参与任务同步。
 """
 
 # ruff: noqa: UP045 — Pydantic v2 在 Python 3.9 下解析模型字段的 ``str | None`` 会失败，此处保留 Optional
@@ -21,6 +24,7 @@ from ..core.accounts import (
     list_bangumi_accounts,
     save_bangumi_account,
     set_active_bangumi_account,
+    set_enabled_bangumi_account,
 )
 from ..core.logging import logger
 from .deps import get_current_user_flexible
@@ -50,6 +54,9 @@ class AccountInfo(BaseModel):
     )
     private: bool = Field(default=False, description="观看记录仅自己可见")
     is_active: bool = Field(default=False, description="是否为当前激活账号")
+    enabled: bool = Field(
+        default=True, description="是否参与任务同步（停用后不再同步）"
+    )
     has_token: bool = Field(default=False, description="是否已配置访问令牌")
 
 
@@ -78,6 +85,12 @@ class AccountActionResponse(BaseModel):
     message: str = ""
 
 
+class AccountEnabledRequest(BaseModel):
+    """启用/停用账号请求"""
+
+    enabled: bool = Field(description="true 启用、false 停用（停用后不参与任务同步）")
+
+
 # ── 辅助函数 ──────────────────────────────────────────────────────
 
 
@@ -94,6 +107,7 @@ def _account_to_info(acc: dict[str, Any]) -> AccountInfo:
         expires_at=acc.get("expires_at"),
         private=bool(acc.get("private")),
         is_active=bool(acc.get("is_active")),
+        enabled=bool(acc.get("enabled", True)),
         has_token=bool(acc.get("access_token")),
     )
 
@@ -172,6 +186,7 @@ async def upsert_account(
         "avatar": existing.get("avatar", ""),
         "private": request.private,
         "is_active": existing.get("is_active", False),
+        "enabled": existing.get("enabled", True),
     }
 
     if not save_bangumi_account(account):
@@ -225,3 +240,25 @@ async def activate_account(
 
     logger.info(f"切换激活 Bangumi 账号: {section_name}")
     return AccountActionResponse(status="success", message="已设为激活账号")
+
+
+@router.post("/{section_name}/enabled", response_model=AccountActionResponse)
+async def set_account_enabled(
+    section_name: str,
+    request: AccountEnabledRequest,
+    _current_user: dict = Depends(get_current_user_flexible),
+) -> AccountActionResponse:
+    """启用/停用指定账号；停用后该账号不再参与任务同步。
+
+    用于多账号场景下的临时停用（如某用户未观看该番剧时临时跳过其同步），
+    账号仍保留在列表中，重新启用后恢复同步。
+    """
+    if not get_bangumi_account(section_name):
+        raise HTTPException(status_code=404, detail="账号不存在")
+
+    if not set_enabled_bangumi_account(section_name, request.enabled):
+        raise HTTPException(status_code=500, detail="设置账号启用状态失败")
+
+    action = "启用" if request.enabled else "停用"
+    logger.info(f"{action} Bangumi 账号: {section_name}")
+    return AccountActionResponse(status="success", message=f"账号已{action}")

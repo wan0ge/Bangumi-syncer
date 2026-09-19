@@ -10,6 +10,8 @@ Bangumi 账号仓库（含 OAuth 令牌）。
   仓储层在写入时加密、读取时解密，上层无感知。
 - ``section_name`` 为账号唯一键：旧单用户段为 ``bangumi``，多用户段为 ``bangumi-{username}``。
 - ``is_active`` 取代「首个映射段即激活」的隐式逻辑，前端可切换激活账号。
+- ``enabled`` 控制账号是否参与任务同步（与 is_active 的首选职责分离），
+  停用后该账号不再被同步枚举命中，用于多账号场景下的临时停用。
 - OAuth 授权过程中的 CSRF state 存于独立的 ``oauth_states`` 表（带 TTL）。
 """
 
@@ -35,6 +37,7 @@ _BANGUMI_ACCOUNT_COLUMNS = [
     "avatar",
     "private",
     "is_active",
+    "enabled",
     "created_at",
     "updated_at",
 ]
@@ -96,8 +99,9 @@ class BangumiAccountRepository(BaseRepository):
                 INSERT INTO bangumi_accounts
                 (section_name, username, media_server_usernames, auth_method,
                  access_token, refresh_token, token_type, expires_at,
-                 bangumi_user_id, nickname, avatar, private, is_active, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 bangumi_user_id, nickname, avatar, private, is_active, enabled,
+                 created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(section_name) DO UPDATE SET
                     username = excluded.username,
                     media_server_usernames = excluded.media_server_usernames,
@@ -111,6 +115,7 @@ class BangumiAccountRepository(BaseRepository):
                     avatar = excluded.avatar,
                     private = excluded.private,
                     is_active = excluded.is_active,
+                    enabled = excluded.enabled,
                     updated_at = excluded.updated_at
                 """,
                 (
@@ -127,6 +132,8 @@ class BangumiAccountRepository(BaseRepository):
                     account.get("avatar", ""),
                     1 if account.get("private") else 0,
                     1 if account.get("is_active") else 0,
+                    # 缺省为启用：调用方未显式指定时不改变「已配置账号均参与同步」的行为
+                    1 if account.get("enabled", True) else 0,
                     now,
                     now,
                 ),
@@ -217,6 +224,19 @@ class BangumiAccountRepository(BaseRepository):
 
         return self._run_write(_write, error_msg="设置激活账号失败", default=False)
 
+    def set_enabled(self, section_name: str, enabled: bool) -> bool:
+        """启用/停用指定账号；停用后该账号不再参与任务同步。"""
+
+        def _write(conn):
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE bangumi_accounts SET enabled = ? WHERE section_name = ?",
+                (1 if enabled else 0, section_name),
+            )
+            return cursor.rowcount > 0
+
+        return self._run_write(_write, error_msg="设置账号启用状态失败", default=False)
+
     def update_token(self, section_name: str, token: dict) -> bool:
         """仅更新令牌相关字段（OAuth 授权/刷新后回写）。"""
 
@@ -280,6 +300,7 @@ def _row_to_account(row) -> dict:
     account["refresh_token"] = _decrypt_token(account.get("refresh_token"))
     account["private"] = bool(account.get("private"))
     account["is_active"] = bool(account.get("is_active"))
+    account["enabled"] = bool(account.get("enabled", True))
     return account
 
 

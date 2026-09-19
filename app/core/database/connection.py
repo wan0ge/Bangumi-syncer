@@ -267,6 +267,21 @@ class DatabaseConnection:
             message="bangumi_accounts 已迁移：增加 private 列",
         )
 
+    def _ensure_bangumi_accounts_enabled(self, cursor) -> None:
+        """旧库迁移：为 bangumi_accounts 增加 enabled（是否参与任务同步）。
+
+        与 is_active（首选账号，user_name 为空时回退到它）职责分离：enabled
+        控制账号是否参与同步，停用后该账号不再被同步枚举命中，用于多账号场景
+        下的临时停用。既有账号默认启用，与迁移前「已配置账号均参与同步」的行为
+        一致。
+        """
+        self._ensure_columns(
+            cursor,
+            "bangumi_accounts",
+            [("enabled", "BOOLEAN NOT NULL DEFAULT 1")],
+            message="bangumi_accounts 已迁移：增加 enabled 列",
+        )
+
     def _ensure_tokens_encrypted(self, cursor) -> None:
         """一次性数据迁移：加密 DB 中的明文 token（access_token / refresh_token）。
 
@@ -598,11 +613,13 @@ class DatabaseConnection:
                 avatar TEXT DEFAULT '',
                 private BOOLEAN NOT NULL DEFAULT 0,
                 is_active BOOLEAN NOT NULL DEFAULT 0,
+                enabled BOOLEAN NOT NULL DEFAULT 1,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL
             )
         """)
         self._ensure_bangumi_accounts_private(cursor)
+        self._ensure_bangumi_accounts_enabled(cursor)
         cursor.execute(
             "CREATE INDEX IF NOT EXISTS idx_bangumi_accounts_section "
             "ON bangumi_accounts(section_name)"

@@ -124,6 +124,9 @@ def _cfg_to_account(section_name: str, cfg: dict) -> dict:
         "avatar": _to_str(cfg.get("avatar")),
         "private": _to_bool(cfg.get("private")),
         "is_active": False,
+        # enabled 与 is_active 职责分离：enabled 控制是否参与任务同步，
+        # 有效账户默认为启用，可手动停用（停用后不再被同步枚举命中）
+        "enabled": True,
     }
 
 
@@ -232,6 +235,11 @@ def set_active_bangumi_account(section_name: str) -> bool:
     return database_manager.set_active_bangumi_account(section_name)
 
 
+def set_enabled_bangumi_account(section_name: str, enabled: bool) -> bool:
+    """启用/停用指定账号；停用后该账号不再参与任务同步。"""
+    return database_manager.set_enabled_bangumi_account(section_name, enabled)
+
+
 def update_bangumi_account_token(section_name: str, token: dict) -> bool:
     return database_manager.update_bangumi_account_token(section_name, token)
 
@@ -321,8 +329,25 @@ def get_user_mappings() -> dict[str, str]:
     return {name: sections[0] for name, sections in get_user_account_mappings().items()}
 
 
+def _filter_disabled_sections(sections: list[str]) -> list[str]:
+    """剔除已停用的账号段名（enabled=0 的账号不参与任务同步）。
+
+    账号不存在时无法判定启用状态，按启用处理以保留既有行为。
+    """
+    enabled_sections: list[str] = []
+    for section in sections:
+        account = database_manager.get_bangumi_account(section)
+        if account is not None and not account.get("enabled", True):
+            continue
+        enabled_sections.append(section)
+    return enabled_sections
+
+
 def get_bangumi_sections_for_user(user_name: str) -> list[str]:
-    """按媒体服务器用户名返回全部 Bangumi 账号配置段名（按登记顺序）。
+    """按媒体服务器用户名返回参与同步的 Bangumi 账号配置段名（按登记顺序）。
+
+    已停用的账号（enabled=0）被排除，用于多账号场景下的临时停用：停用的
+    账号不再被同步枚举命中，但仍在账号列表中可见以便重新启用。
 
     空用户名保护集中在本函数：多账号模式下空 user_name 不回退激活账号，
     避免数据串号（某条记录的 user_name 异常为空时，回退激活账号会把该记录
@@ -343,8 +368,12 @@ def get_bangumi_sections_for_user(user_name: str) -> list[str]:
         except Exception:
             pass
         active = database_manager.get_active_bangumi_account()
-        return [active["section_name"]] if active and active.get("section_name") else []
-    return list(get_user_account_mappings().get(user_name) or [])
+        sections = (
+            [active["section_name"]] if active and active.get("section_name") else []
+        )
+    else:
+        sections = list(get_user_account_mappings().get(user_name) or [])
+    return _filter_disabled_sections(sections)
 
 
 def get_bangumi_configs_for_user(user_name: str) -> list[dict[str, Any]]:

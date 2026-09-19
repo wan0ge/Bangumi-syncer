@@ -385,3 +385,79 @@ def test_one_account_with_multiple_media_users(temp_dir, reset_singletons, monke
         "dave": ["bangumi-944646"],
     }
     assert accounts_mod.get_bangumi_config_for_user("dave")["username"] == "u2"
+
+
+def test_accounts_are_enabled_by_default(temp_dir, reset_singletons, monkeypatch):
+    """有效账号默认为启用状态（参与任务同步）。"""
+    db = _accounts_db(temp_dir, _two_accounts_one_media_user())
+
+    assert [a["enabled"] for a in db.list_bangumi_accounts()] == [True, True]
+
+
+def test_disabled_account_excluded_from_sync_sections(
+    temp_dir, reset_singletons, monkeypatch
+):
+    """停用的账号不再出现在同步解析的段名列表中，但仍保留在账号列表里。"""
+    import app.core.accounts as accounts_mod
+
+    db = _accounts_db(temp_dir, _two_accounts_one_media_user())
+    monkeypatch.setattr(accounts_mod, "database_manager", db)
+
+    assert accounts_mod.get_bangumi_sections_for_user("Elegy233") == [
+        "bangumi",
+        "bangumi-944646",
+    ]
+
+    db.set_enabled_bangumi_account("bangumi", False)
+    assert accounts_mod.get_bangumi_sections_for_user("Elegy233") == ["bangumi-944646"]
+    # 停用不改变账号列表，界面仍可见以便重新启用
+    assert {a["section_name"] for a in db.list_bangumi_accounts()} == {
+        "bangumi",
+        "bangumi-944646",
+    }
+
+
+def test_disabled_primary_hands_over_to_next_account(
+    temp_dir, reset_singletons, monkeypatch
+):
+    """首选账号被停用时，首选顺延到下一个启用账号。"""
+    import app.core.accounts as accounts_mod
+
+    db = _accounts_db(temp_dir, _two_accounts_one_media_user())
+    monkeypatch.setattr(accounts_mod, "database_manager", db)
+
+    assert accounts_mod.get_bangumi_config_for_user("Elegy233")["username"] == "u1"
+    db.set_enabled_bangumi_account("bangumi", False)
+    assert accounts_mod.get_bangumi_config_for_user("Elegy233")["username"] == "u2"
+
+
+def test_reenabled_account_restores_sync(temp_dir, reset_singletons, monkeypatch):
+    """重新启用后账号恢复参与同步。"""
+    import app.core.accounts as accounts_mod
+
+    db = _accounts_db(temp_dir, _two_accounts_one_media_user())
+    monkeypatch.setattr(accounts_mod, "database_manager", db)
+
+    db.set_enabled_bangumi_account("bangumi", False)
+    assert accounts_mod.get_bangumi_sections_for_user("Elegy233") == ["bangumi-944646"]
+    db.set_enabled_bangumi_account("bangumi", True)
+    assert accounts_mod.get_bangumi_sections_for_user("Elegy233") == [
+        "bangumi",
+        "bangumi-944646",
+    ]
+
+
+def test_all_accounts_disabled_returns_no_sections(
+    temp_dir, reset_singletons, monkeypatch
+):
+    """全部账号停用时，同步解析返回空列表。"""
+    import app.core.accounts as accounts_mod
+
+    db = _accounts_db(temp_dir, _two_accounts_one_media_user())
+    monkeypatch.setattr(accounts_mod, "database_manager", db)
+
+    for section in ("bangumi", "bangumi-944646"):
+        db.set_enabled_bangumi_account(section, False)
+
+    assert accounts_mod.get_bangumi_sections_for_user("Elegy233") == []
+    assert accounts_mod.get_bangumi_config_for_user("Elegy233") is None
