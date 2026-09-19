@@ -139,11 +139,13 @@ class DatabaseManager:
         match_score: Optional[float] = None,
         match_platform: str = "",
         match_trace: Optional[dict] = None,
+        account_results: Optional[list] = None,
     ) -> Optional[int]:
         """记录同步日志到数据库，返回新记录 id（失败时 None）
 
         匹配追踪相关字段会一并写入 sync_records 表的 match_* 列，
-        并将完整 trace 序列化为 JSON 存入 match_trace 列。
+        并将完整 trace 序列化为 JSON 存入 match_trace 列。account_results
+        为各 Bangumi 账号的标记结果列表，序列化后存入 account_results 列。
         """
         return self._sync.log_sync_record(
             user_name=user_name,
@@ -162,6 +164,7 @@ class DatabaseManager:
             match_score=match_score,
             match_platform=match_platform,
             match_trace=match_trace,
+            account_results=account_results,
         )
 
     def get_sync_records(

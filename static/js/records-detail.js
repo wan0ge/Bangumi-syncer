@@ -262,6 +262,62 @@ function renderRecordHero(record, trace) {
     `;
 }
 
+// ========== 各 Bangumi 账号同步结果 ==========
+
+function parseAccountResults(record) {
+    const raw = record && record.account_results;
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function renderAccountResultItem(r) {
+    const username = r.username || '未命名账号';
+    const section = r.section || '';
+    const isSuccess = r.status === 'success';
+    const badgeCls = isSuccess
+        ? 'record-detail-modal__chip--status-success'
+        : 'record-detail-modal__chip--status-error';
+    const badgeText = isSuccess ? '已同步' : '同步失败';
+    const primaryChip = r.primary
+        ? '<span class="record-detail-modal__chip record-detail-modal__chip--type">首选</span>'
+        : '';
+    const msg = (!isSuccess && r.message)
+        ? `<div class="record-detail-accounts__msg">${escapeHtml(r.message)}</div>`
+        : '';
+    const sub = section
+        ? `<span class="record-detail-accounts__sub">${escapeHtml(section)}</span>`
+        : '';
+    return `
+        <li class="record-detail-accounts__item">
+            <div class="record-detail-accounts__head">
+                <span class="record-detail-accounts__name">${escapeHtml(username)}</span>
+                ${sub}
+                ${primaryChip}
+                <span class="record-detail-modal__chip record-detail-modal__chip--status ${badgeCls}">${badgeText}</span>
+            </div>
+            ${msg}
+        </li>`;
+}
+
+function renderAccountResults(results) {
+    if (!Array.isArray(results) || results.length === 0) return '';
+    const items = results.map(renderAccountResultItem).join('');
+    return `
+        <section class="record-detail-accounts">
+            <div class="record-detail-accounts__title">
+                <i class="bi bi-people-fill"></i>
+                <span>Bangumi 账号同步结果</span>
+            </div>
+            <ul class="record-detail-accounts__list">${items}</ul>
+        </section>`;
+}
+
 // ========== 耗时瀑布（仅在有步骤耗时可见时展示） ==========
 
 function renderTimingWaterfall(trace) {
@@ -665,7 +721,7 @@ function renderStepSlowNote(elapsedMs, totalMs) {
 }
 
 // 步骤详细内容（折叠区内）：异常 / 搜索参数 / API 摘要 / 候选 / 输入输出
-function renderStepDetailContent(step, status, elapsed, totalMs) {
+function renderStepDetailContent(step, status, elapsed, totalMs, opts) {
     const hasStructuredIO = !!(step.inputs && Object.keys(step.inputs).length > 0)
         || !!(step.outputs && Object.keys(step.outputs).length > 0);
 
@@ -712,6 +768,11 @@ function renderStepDetailContent(step, status, elapsed, totalMs) {
         }
     }
 
+    // result step：各 Bangumi 账号的同步结果随「同步结果」一同展示
+    if (step.stage === 'result') {
+        body += renderAccountResults(opts && opts.accountResults);
+    }
+
     return body;
 }
 
@@ -726,7 +787,7 @@ function renderStepCard(step, idx, totalMs, opts) {
     const elapsed = Math.max(0, Number(step.elapsed_ms) || 0);
     const heat = classifyStepHeat(elapsed, totalMs);
 
-    const detailHtml = renderStepDetailContent(step, status, elapsed, totalMs);
+    const detailHtml = renderStepDetailContent(step, status, elapsed, totalMs, options);
     const expandable = !!detailHtml.trim();
     const autoOpen = expandable
         && (status === 'error' || status === 'low_confidence' || ['hot', 'critical'].includes(heat));
@@ -862,6 +923,8 @@ function renderPipelineHtml(record, trace) {
     const totalMs = getTraceTotalMs(trace);
 
     let html = renderRecordHero(record, trace);
+    // 各账号结果随「同步结果」步骤一同展示，不单独成块
+    const accountResults = parseAccountResults(record);
     html += renderTimingWaterfall(trace);
 
     // 顶层条目列表（含分组占位），用于计算连接线是否收尾
@@ -893,7 +956,7 @@ function renderPipelineHtml(record, trace) {
                 html += `<div class="record-detail-steps__group-slot">${groupHtml}</div>`;
             }
         } else {
-            html += renderStepCard(steps[item.index], item.index + 1, totalMs, { isLast });
+            html += renderStepCard(steps[item.index], item.index + 1, totalMs, { isLast, accountResults });
         }
     });
     html += '</div>';

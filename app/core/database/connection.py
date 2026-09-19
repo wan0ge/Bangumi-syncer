@@ -342,6 +342,19 @@ class DatabaseConnection:
             "ON sync_records_consumed(run_id)"
         )
 
+    def _ensure_sync_records_account_results(self, cursor) -> None:
+        """旧库迁移：为 sync_records 增加 account_results（各 Bangumi 账号的同步结果）。
+
+        一次同步可对应多个 Bangumi 账号，结果按账号以 JSON 文本记录，供同步
+        记录详情按账号展示各账号的标记状态与失败原因。
+        """
+        self._ensure_columns(
+            cursor,
+            "sync_records",
+            [("account_results", "TEXT DEFAULT ''")],
+            message="sync_records 已迁移：增加 account_results 列",
+        )
+
     def _ensure_agent_memory(self, cursor) -> None:
         """Agent 工作记忆 schema：主表 + 归档表 + 索引 + FTS5 + 同步触发器。
 
@@ -467,6 +480,7 @@ class DatabaseConnection:
         self._ensure_sync_records_match_fields(cursor)
         self._ensure_sync_records_consumed(cursor)
         self._ensure_sync_records_link_fields(cursor)
+        self._ensure_sync_records_account_results(cursor)
 
         # 创建 Trakt 配置表
         cursor.execute("""
