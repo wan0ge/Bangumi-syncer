@@ -120,7 +120,7 @@ class TestConfigFallbackActions:
 
         btn-group 为 inline-flex 且项目移动端规则允许其换行，但
         .config-form 的窄屏规则会把表单内的按钮组改为整宽列向；该卡片
-        与表单解耦后，改用外层 flex-wrap 容器承载两个成对内层容器：
+        位于表单之外，由外层 flex-wrap 容器承载两个成对内层容器：
         宽度不足时两对各自成行并居中，按钮保持自然宽度。
         """
         block = self._block()
