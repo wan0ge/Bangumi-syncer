@@ -332,3 +332,38 @@ class TestSharedModals:
         )[0]
         assert "recordDetailModal" in body
         assert "hidden.bs.modal" in body
+
+
+class TestConfigPageStructure:
+    """配置页表单区域的结构约束。"""
+
+    @staticmethod
+    def _config_html() -> str:
+        app = FastAPI()
+        app.include_router(pages.router)
+        with patch.object(
+            pages, "get_current_user_from_cookie", return_value={"username": "u"}
+        ):
+            return TestClient(app).get("/config", follow_redirects=False).text
+
+    def test_config_form_divs_balanced(self):
+        """配置表单区域内的 div 必须配平。
+
+        form 内遗留未闭合 div 时，HTML 解析器会忽略其后的 </form>，
+        表单之后的内容（小屏「配置操作」卡片、调试工具导航）被解析进
+        表单内部，进而命中 .config-form 的按钮组样式。
+        """
+        html = self._config_html()
+        start = html.index('<form id="config-form"')
+        end = html.index("</form>", start)
+        body = re.sub(r"<script\b.*?</script>", "", html[start:end], flags=re.S)
+        opens = len(re.findall(r"<div\b", body))
+        closes = body.count("</div>")
+        assert opens == closes, f"配置表单区域 div 未配平：{opens} 开 / {closes} 闭"
+
+    def test_small_screen_actions_outside_form(self):
+        """小屏「配置操作」卡片位于表单之外，与模板结构一致。"""
+        html = self._config_html()
+        form_start = html.index('<form id="config-form"')
+        card_idx = html.index("card mb-4 d-lg-none")
+        assert html.index("</form>", form_start) < card_idx

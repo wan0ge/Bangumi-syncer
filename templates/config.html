@@ -101,27 +101,29 @@
                     </div>
                 </div>
                 <div class="card-body text-center py-4">
-                    <div class="btn-group me-3" role="group">
-                        <button type="button" class="btn btn-primary px-4" onclick="saveConfig()">
-                            <i class="bi bi-save me-2"></i>保存配置
-                        </button>
-                        <button type="button"
-                                class="btn btn-outline-secondary px-4"
-                                onclick="loadConfig(true)">
-                            <i class="bi bi-arrow-clockwise me-2"></i>重新加载
-                        </button>
-                    </div>
-                    <div class="btn-group" role="group">
-                        <button type="button"
-                                class="btn btn-outline-primary px-4"
-                                onclick="backupConfig()">
-                            <i class="bi bi-download me-2"></i>备份配置
-                        </button>
-                        <button type="button"
-                                class="btn btn-outline-primary px-4"
-                                onclick="showRestoreModal()">
-                            <i class="bi bi-upload me-2"></i>恢复配置
-                        </button>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            <button type="button" class="btn btn-primary px-4" onclick="saveConfig()">
+                                <i class="bi bi-save me-2"></i>保存配置
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-secondary px-4"
+                                    onclick="loadConfig(true)">
+                                <i class="bi bi-arrow-clockwise me-2"></i>重新加载
+                            </button>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-center gap-2">
+                            <button type="button"
+                                    class="btn btn-outline-primary px-4"
+                                    onclick="backupConfig()">
+                                <i class="bi bi-download me-2"></i>备份配置
+                            </button>
+                            <button type="button"
+                                    class="btn btn-outline-primary px-4"
+                                    onclick="showRestoreModal()">
+                                <i class="bi bi-upload me-2"></i>恢复配置
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

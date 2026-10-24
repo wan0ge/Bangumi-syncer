@@ -103,3 +103,34 @@ class TestArchivePageActions:
         override = css.rindex(".btn-group.archive-page-actions {")
         generic = css.index(".btn-group {")
         assert override > generic
+
+
+class TestConfigFallbackActions:
+    """小屏「配置操作」卡片按钮的排布约束。"""
+
+    @staticmethod
+    def _block() -> str:
+        html = (_REPO_ROOT / "templates/config.html").read_text(encoding="utf-8")
+        return html.split("<!-- 小屏（lg 以下）操作按钮 fallback -->", 1)[1].split(
+            "<!-- 调试工具导航 -->", 1
+        )[0]
+
+    def test_actions_use_wrapping_pairs(self):
+        """按钮按对放入可换行的 flex 容器，不使用 btn-group。
+
+        btn-group 为 inline-flex 且项目移动端规则允许其换行，但
+        .config-form 的窄屏规则会把表单内的按钮组改为整宽列向；该卡片
+        与表单解耦后，改用外层 flex-wrap 容器承载两个成对内层容器：
+        宽度不足时两对各自成行并居中，按钮保持自然宽度。
+        """
+        block = self._block()
+        assert "btn-group" not in block
+        # 外层容器 + 两个成对容器
+        assert block.count("d-flex flex-wrap justify-content-center gap-2") == 3
+
+    def test_pairs_keep_button_order(self):
+        """两对按钮保持「保存/重新加载」「备份/恢复」的配对顺序。"""
+        block = self._block()
+        assert block.index("saveConfig()") < block.index("loadConfig(true)")
+        assert block.index("loadConfig(true)") < block.index("backupConfig()")
+        assert block.index("backupConfig()") < block.index("showRestoreModal()")
